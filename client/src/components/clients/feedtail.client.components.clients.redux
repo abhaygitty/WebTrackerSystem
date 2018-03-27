@@ -1,0 +1,223 @@
+import React from 'react';
+import { Field, reduxForm } from 'redux-form';
+import PropTypes from 'prop-types';
+import { Link } from 'react-router';
+import RaisedButton from 'material-ui/RaisedButton';
+import TextField from 'material-ui/TextField';
+import NumberFormat from 'react-number-format';
+import { Card, CardHeader, CardTitle, CardActions } from 'material-ui/Card';
+import SelectField from 'material-ui/SelectField';
+import MenuItem from 'material-ui/MenuItem';
+import DatePickerEx from '../../components/datetimes/datepickerex.client.components.datetimes';
+import {Table, TableBody, TableHeader, TableHeaderColumn, TableRow, TableRowColumn} from 'material-ui/Table';
+import { clientFeeValidate } from '../../validations/validate.client.validations';
+// import CheckBox from 'material-ui/Checkbox';
+
+const ClientFeeDetailComponent = ({  // may use props straightaway here
+  fee,
+  clientId,
+  feeCats,
+  freqTypes,
+  actionMode,
+  onSubmit,
+  onChange,
+  onBlur,
+  errors,
+  showError,
+  successMessage
+}) => {
+
+  const styles = {
+    container: {
+      marginLeft: "10px",
+      display: "flex",
+      alignItems: "right"
+    }
+  };
+
+  const startDateInput = (
+    <TableRow>
+      <TableRowColumn>Start Date</TableRowColumn>
+      <TableRowColumn>
+        <Field name="fromdate" component={ props =>(
+          <DatePickerEx
+            floatingLabelText={props.name}
+            name={props.name}
+            errorText={props.touched && props.error}
+            autoOk={true}
+            onChange={onChange}
+            onBlur={onBlur}
+            {...props}
+          />
+        ) } />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const feeInput = (
+    <TableRow>
+      <TableRowColumn>Fee</TableRowColumn>
+      <TableRowColumn>
+        <Field name="annualfee" component={() => (
+          <NumberFormat
+            name="annualfee"
+            customInput={TextField}
+            errorText={showError ? errors.annualfee : null}
+            thousandSeparator={false}
+            onChange={onChange}
+          />) }
+        />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const feeCategoryItems = feeCats.map(item => {
+    return (
+      <MenuItem key={item.id} value={item.id} primaryText={item.description} />
+    );
+  });
+
+  const feeCategoryOptions = (
+    <TableRow>
+      <TableRowColumn>Category</TableRowColumn>
+      <TableRowColumn>
+        <Field name="feecategories_id" component={(props) => (
+          <SelectField
+            onChange={onChange}
+            errorText={props.touched && props.error}
+            {...props}
+          >
+            {feeCategoryItems}
+          </SelectField>
+        ) } />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const freqTypeItems = freqTypes.map(item => {
+    return (
+      <MenuItem key={item.id} value={item.id} primaryText={item.description} />
+    );
+  });
+
+  const freqTypeOptions = (
+    <TableRow>
+      <TableRowColumn>Email</TableRowColumn>
+      <TableRowColumn>
+        <Field name="freqtype" component={(props) => (
+          <SelectField
+            onChange={onChange}
+            errorText={props.touched && props.error}
+            {...props}
+          >
+            {freqTypeItems}
+          </SelectField>
+        )} />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const reviewDate = (
+    <TableRow>
+      <TableRowColumn>Review Date</TableRowColumn>
+      <TableRowColumn>
+        <Field name="reviewdate" component={(props) => (
+          <DatePickerEx
+            name={props.name}
+            onBlur={onBlur}
+            onChange={onChange}
+            errorText={props.touched && props.error}
+            autoOk={true}
+            {...props}
+          />
+        )} />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const notes = (
+    <TableRow>
+      <TableRowColumn>Reminder Message</TableRowColumn>
+      <TableRowColumn>
+        <Field name="notes" component={ (props)=> (
+          <div style={styles.container} >
+            <TextField
+              type='text'
+              name={props.name}
+              floatingLabelText="Reminder Message"
+              onChange={onChange}
+              errorText={props.touched && props.error}
+              multiLine={true}
+              rows={2}
+              {...props}
+            />
+          </div>
+        ) } />
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  const submit = (
+    <TableRow>
+      <TableRowColumn></TableRowColumn>
+      <TableRowColumn>
+        <div className="row-action-left">
+          <RaisedButton className="row-button-save" type="submit" label="Save" primary={true} />
+        </div>
+        <div className="row-action-right">
+          <RaisedButton
+            className="row-button-cancel"
+            type="button"
+            label="Cancel"
+            primary={true}
+            containerElement={<Link to={`/clients/update/${clientId}/fees`} />}
+          />
+        </div>
+      </TableRowColumn>
+    </TableRow>
+  );
+
+  return (
+    <Card className="container">
+      <form action="/" onSubmit={onSubmit}>
+        <h2 className="card-heading">{actionMode == "create"? "Create Client Fee":"Modify Client Fee"}</h2>
+        <Table
+          className="table table-bordered table-hover"
+          selectable={false}
+        >
+          <TableBody
+            displayRowCheckbox={false}
+          >
+            {startDateInput}
+            {feeInput}
+            {feeCategoryOptions}
+            {freqTypeOptions}
+            {notes}
+            {reviewDate}
+            {submit}
+          </TableBody>
+        </Table>
+      </form>
+    </Card>);
+};
+
+ClientFeeDetailComponent.propTypes = {
+  fee: PropTypes.object,
+  clientId: PropTypes.string,
+  feeCats: PropTypes.array,
+  freqTypes: PropTypes.array,
+  actionMode: PropTypes.string,
+  onSubmit: PropTypes.func,
+  onChange: PropTypes.func,
+  onBlur: PropTypes.func,
+  errors: PropTypes.object,
+  showError: PropTypes.bool,
+  successMessage: PropTypes.string,
+};
+
+// export default ClientFeeDetailComponent;
+export default reduxForm({
+  form: 'clientFeeNewForm',
+  fields: ['fromdate', 'annualfee', 'feecategories_id', 'freqtype', 'reviewdate', 'notes'],
+  validate: clientFeeValidate
+})(ClientFeeDetailComponent);

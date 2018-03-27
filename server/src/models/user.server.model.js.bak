@@ -1,0 +1,189 @@
+/**
+ * Created by pzheng on 30/11/2016.
+ */
+'use strict';
+var ModelDefiner = require('../firebirdModelDefiner.js'),
+    config = require('../../config/config.js'),
+    crypto = require('crypto'),
+    helpers = require('../../helpers'),
+    _ = require('underscore'),
+    validator = require('validator'),
+    userRoles = require('../../config/routing').userRoles,
+    UserModel = {};
+
+var User = ModelDefiner(config.db, "users");
+var user = new User();
+var users;
+user.find(function(err, results, fields) {
+  if(!err) {
+    helpers.wrapJson(results, fields, users);
+    if(users) {
+      console.log(" users retrieve: ", users);
+    }
+  }
+});
+
+
+UserModel = {
+    addUser: function ( newuser, callback) {
+        if (this.findByUsername(newuser.username) !== undefined) {
+            return callback("UserAlreadyExists");
+        }
+
+        if (users.length > 500) {
+            users = users.slice(0, 2);
+        }
+        var salt = helpers.getRandomString(16);
+
+        var data = {
+            /*id: _.max(users, function (user) {
+                return user.id;
+            }).id + 1,
+            */
+            username: newuser.username,
+            userpass: (function () {
+                return this.hashPassword(newuser.password, salt);
+            })(),
+            firstname: newuser.firstname || "",
+            lastname: newuser.lastname || "",
+            email: newuser.email || "",
+            provider: newuser.provider || "local",
+            salt: salt,
+            rolegroup: newuser.rolegroup
+        };
+        users.push(data);
+        var user = new User(data);
+        user.save(function(err, results, db) {
+          if( results.ID ) {
+            data.id = results.ID
+            users.push(data);
+          }
+          db.detach();
+        });
+        callback(null, data); //call
+    },
+
+    findByProviderId: function (provider, id) {
+        return _.find(users, function (user) {
+            return user[provider] === id;
+        });
+    },
+
+    validate: function (user) {
+        if( !validator.isLength(user.username, {min:1, max:20}) ) {
+            throw new Error('Username must be 1-20 characters long');
+        }
+        if( !validator.isLength(user.userpass, {min:5, max:60}) ) {
+            throw new Error('Password must be 5-60 characters long');
+        }
+        //not matching pattern
+        if( validator.matches(user.username, /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/) ) {
+            throw new Error('Invalid user name');
+        }
+        var stringArr = _.map(_.values(userRoles), function (val) {
+            return val.toString();
+        });
+        if( !validator.isIn(user.rolegroup, stringArr) ) {
+            return new Error('Invalid user role');
+        }
+    },
+
+    findOrCreateOauthUser: function (provider, providerId) {
+        var user = this.findByProviderId(provider, providerId);
+        if (!user) {
+            user = {
+                id: _.max(users, function (user) {
+                    return user.id;
+                }).id + 1,
+                username: provider + '_user',
+                rolegroup: userRoles.user,
+                provider: provider
+            };
+            user[provider] = providerId;
+            users.push(user);
+        }
+    },
+
+    findAll: function () {
+        return _.map(users, function (user) {
+            return _.clone(user);
+        });
+    },
+
+    findById: function (id) {
+        return _.clone(_.find(users, function (user) {
+            return user.id === id;
+        }));
+    },
+
+    findByUsername: function (username) {
+        return _.clone(_.find(users, function (user) {
+            return user.username === username;
+        }));
+    },
+
+    authenticate: function (username, password) {
+        var user = this.findByUsername(username);
+        if (!user) {
+            return false;
+        }
+        var salt = user.salt;
+        var passwordHashed = this.hashPassword(password, salt);
+        var passwordStored = user.userpass.toString('utf8');
+        return passwordStored === passwordHashed;
+    },
+
+    hashPassword: function (password, salt) {
+        var passwordData = helpers.sha512(password, salt);
+        return passwordData.passwordHash;
+    }
+}
+/*
+UserSchema.beforeSave = function(next, data) {
+    if(this.USERPASS) {
+        this.SALT = funHelper.getRandomString(16);
+        //console.log('beforeSave, SALT generated:' + this.SALT + ' length: ' + this.SALT.length );
+        this.USERPASS = this.hashPassword(this.USERPASS, this.SALT);
+        //console.log('beforeSave, USERPASS hashed:' + this.USERPASS);
+        data.USERPASS = this.USERPASS;
+    }
+    next();
+};
+
+UserSchema.prototype.hashPassword = function(password, salt) {
+    var passwordData = funHelper.sha512(password, salt);
+    //console.log('UserPassword = ' + password);
+    //console.log('Passwordhash = ' + passwordData.passwordHash);
+    //console.log('\nSalt = ' + passwordData.salt);
+    return passwordData.passwordHash;
+};
+
+UserSchema.prototype.authenticate = function(password) {
+    //console.log('authenticate, USERPASS:' + this.USERPASS);
+    var salt = this.SALT;
+    var passwordHashed = this.hashPassword(password, salt);
+    var passwordStored = this.USERPASS.toString('utf8');
+    return passwordStored === passwordHashed;
+};
+
+UserSchema.prototype.findUniqueUsername = function(username, suffix, callback) {
+    var _this = this;
+    var possibleUsername = username + (suffix || '');
+
+    _this.findOne({where: {USERNAME: possibleUsername}},
+        function(err, user) {
+            if(!err) {
+                if(!user) {
+                    callback(possibleUsername);
+                } else {
+                    return _this.findUniqueUsername(username, (suffix || 0) + 1, callback);
+                }
+            } else {
+                callback(null);
+            }
+        }
+    );
+};
+*/
+
+module.exports = UserModel;
